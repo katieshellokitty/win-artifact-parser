@@ -8,4 +8,5 @@ evidence/
 *.raw
 *.dd
 timeline.csv
+prefetch.csv
 *_report.json

@@ -1,10 +1,21 @@
-"""Command-line interface: python -m winartifacts lnk <file-or-folder>"""
+"""Command-line interface.
+
+    python -m winartifacts lnk <file-or-folder>
+    python -m winartifacts prefetch <file-or-folder>
+"""
 
 import argparse
 import sys
 from pathlib import Path
 
-from . import lnk, report
+from . import lnk, prefetch, report
+
+# name -> (file pattern, parse function, flat summary, timeline records, error type)
+PARSERS = {
+    "lnk": ("*.lnk", lnk.parse_lnk, lambda p: p, lnk.to_timeline_records, lnk.LnkParseError),
+    "prefetch": ("*.pf", prefetch.parse_prefetch, prefetch.summary,
+                 prefetch.to_timeline_records, prefetch.PrefetchParseError),
+}
 
 
 def find_files(path, pattern):
@@ -14,35 +25,37 @@ def find_files(path, pattern):
     return [path]
 
 
-def run_lnk(args):
+def run(args):
+    pattern, parse, summarize, to_records, error = PARSERS[args.artifact]
     parsed_all, records = [], []
-    for path in find_files(args.path, "*.lnk"):
+    for path in find_files(args.path, pattern):
         try:
-            parsed = lnk.parse_lnk(path)
-        except (lnk.LnkParseError, OSError) as exc:
+            parsed = parse(path)
+        except (error, OSError) as exc:
             print(f"[!] skipped {exc}", file=sys.stderr)
             continue
         parsed_all.append(parsed)
-        records.extend(lnk.to_timeline_records(parsed))
+        records.extend(to_records(parsed))
 
     if not parsed_all:
-        print("No .lnk files parsed.", file=sys.stderr)
+        print(f"No {pattern} files parsed.", file=sys.stderr)
         return 1
 
     if args.timeline:
         records.sort(key=lambda r: r["timestamp"])
-        rows, fields = records, report.TIMELINE_FIELDS
+        rows, full = records, records
     else:
-        rows, fields = parsed_all, list(parsed_all[0].keys())
+        rows, full = [summarize(p) for p in parsed_all], parsed_all
 
     if args.format == "csv":
+        fields = report.TIMELINE_FIELDS if args.timeline else list(rows[0].keys())
         report.write_csv(rows, fields, args.output)
     elif args.format == "json":
-        report.write_json(rows, args.output)
+        report.write_json(full, args.output)  # JSON keeps nested detail
     else:
         for row in rows:
             report.print_details(row)
-    print(f"[+] parsed {len(parsed_all)} LNK file(s)", file=sys.stderr)
+    print(f"[+] parsed {len(parsed_all)} {args.artifact} file(s)", file=sys.stderr)
     return 0
 
 
@@ -52,17 +65,20 @@ def main(argv=None):
         description="Parse Windows forensic artifacts into reports and timelines.",
     )
     sub = parser.add_subparsers(dest="artifact", required=True)
-
-    lnk_cmd = sub.add_parser("lnk", help="parse Windows shortcut (.lnk) files")
-    lnk_cmd.add_argument("path", help="a .lnk file or a folder to search recursively")
-    lnk_cmd.add_argument("-f", "--format", choices=["text", "csv", "json"], default="text")
-    lnk_cmd.add_argument("-o", "--output", help="write to this file instead of the console")
-    lnk_cmd.add_argument("-t", "--timeline", action="store_true",
+    helps = {
+        "lnk": "parse Windows shortcut (.lnk) files",
+        "prefetch": "parse Prefetch (.pf) files",
+    }
+    for name, help_text in helps.items():
+        cmd = sub.add_parser(name, help=help_text)
+        cmd.add_argument("path", help="a file or a folder to search recursively")
+        cmd.add_argument("-f", "--format", choices=["text", "csv", "json"], default="text")
+        cmd.add_argument("-o", "--output", help="write to this file instead of the console")
+        cmd.add_argument("-t", "--timeline", action="store_true",
                          help="output one sorted record per timestamp")
-    lnk_cmd.set_defaults(func=run_lnk)
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    return run(args)
 
 
 if __name__ == "__main__":
