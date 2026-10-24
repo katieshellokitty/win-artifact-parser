@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+# Never commit real evidence or generated reports
+evidence/
+*.E01
+*.raw
+*.dd
+timeline.csv
+*_report.json
