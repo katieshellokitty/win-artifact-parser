@@ -35,6 +35,13 @@ class TestPrefetchParser(unittest.TestCase):
         result = parse_bytes(build_pf(short_variant=True, run_count=7))
         self.assertEqual(result["run_count"], 7)
 
+    def test_win11_24h2_version_31(self):
+        result = parse_bytes(build_pf(version=31, run_count=18))
+        self.assertEqual(result["version"], 31)
+        self.assertEqual(result["run_count"], 18)
+        self.assertEqual(len(result["last_run_times"]), 3)
+        self.assertEqual(result["volumes"][0]["serial"], "5E77-A001")
+
     def test_older_versions_keep_one_run_time(self):
         for version in (17, 23):
             result = parse_bytes(build_pf(version=version, run_count=12))
@@ -52,7 +59,7 @@ class TestPrefetchParser(unittest.TestCase):
         self.assertEqual(len(result["loaded_files"]), 4)
 
     def test_volume_information(self):
-        for version in (17, 23, 26, 30):
+        for version in (17, 23, 26, 30, 31):
             volume = parse_bytes(build_pf(version=version))["volumes"][0]
             self.assertEqual(volume["device_path"], "\\VOLUME{01dc1e2a5e77a001-5e77a001}")
             self.assertEqual(volume["serial"], "5E77-A001")

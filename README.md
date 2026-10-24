@@ -116,8 +116,9 @@ reported as empty rather than as 1601.
 
 ### Prefetch
 
-Format versions 17 (XP), 23 (Vista/7), 26 (8/8.1) and 30 (10/11) are
-supported. The parser checks the `SCCA` signature, then reads the
+Format versions 17 (XP), 23 (Vista/7), 26 (8/8.1), 30 (10/11) and 31
+(Windows 11 24H2 and later) are supported. Version 31 support was added
+after validating against a real Windows 11 machine. The parser checks the `SCCA` signature, then reads the
 version-specific file information section for the run times and run count,
 the filename strings section for loaded files, and the volume information
 section for device paths, serial numbers and creation times.

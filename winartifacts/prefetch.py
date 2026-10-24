@@ -10,6 +10,7 @@ Supported format versions:
     23  Windows Vista / 7
     26  Windows 8 / 8.1
     30  Windows 10 / 11 (stored compressed; see decompress_mam)
+    31  Windows 11 24H2 and later (same layout as the shorter version 30 variant)
 
 References: the forensics.wiki "Windows Prefetch File Format" page and
 Joachim Metz's libscca format documentation.
@@ -26,10 +27,10 @@ SIGNATURE = b"SCCA"
 HEADER_SIZE = 0x54
 
 # Version-specific layout of the file information section (absolute offsets)
-LAST_RUN_OFFSET = {17: 0x78, 23: 0x80, 26: 0x80, 30: 0x80}
-LAST_RUN_SLOTS = {17: 1, 23: 1, 26: 8, 30: 8}
-RUN_COUNT_OFFSET = {17: 0x90, 23: 0x98, 26: 0xD0}  # version 30 varies, see below
-VOLUME_ENTRY_SIZE = {17: 40, 23: 104, 26: 104, 30: 96}
+LAST_RUN_OFFSET = {17: 0x78, 23: 0x80, 26: 0x80, 30: 0x80, 31: 0x80}
+LAST_RUN_SLOTS = {17: 1, 23: 1, 26: 8, 30: 8, 31: 8}
+RUN_COUNT_OFFSET = {17: 0x90, 23: 0x98, 26: 0xD0}  # versions 30/31 vary, see below
+VOLUME_ENTRY_SIZE = {17: 40, 23: 104, 26: 104, 30: 96, 31: 96}
 
 COMPRESSION_FORMAT_XPRESS_HUFF = 4
 
@@ -91,11 +92,12 @@ def _u64(data, offset):
 
 
 def _run_count_offset(version, data):
-    if version != 30:
+    if version not in (30, 31):
         return RUN_COUNT_OFFSET[version]
     # Windows 10/11 has two layouts. When the file metrics array starts at
     # 0x128 instead of 0x130, the file information section is 8 bytes
-    # shorter and the run count sits at 0xC8 rather than 0xD0.
+    # shorter and the run count sits at 0xC8 rather than 0xD0. Version 31
+    # (Windows 11 24H2+) uses the shorter layout.
     return 0xC8 if _u32(data, 0x54) == 0x128 else 0xD0
 
 

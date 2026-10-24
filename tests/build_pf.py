@@ -13,7 +13,7 @@ from pathlib import Path
 from winartifacts import prefetch
 from tests.build_lnk import to_filetime
 
-SECTION_START = {17: 0x98, 23: 0xF0, 26: 0x130, 30: 0x130}
+SECTION_START = {17: 0x98, 23: 0xF0, 26: 0x130, 30: 0x130, 31: 0x128}
 
 
 def build_pf(
@@ -61,7 +61,8 @@ def build_pf(
     struct.pack_into("<I", info, 0x4C, prefetch_hash)
 
     # Section A offset doubles as the version 30 layout marker
-    metrics_offset = 0x128 if (version == 30 and short_variant) else SECTION_START[version]
+    short_variant = short_variant or version == 31
+    metrics_offset = 0x128 if short_variant else SECTION_START[version]
     struct.pack_into("<IIIIIIIII", info, 0x54,
                      metrics_offset, 0, 0, 0,
                      names_offset, len(names),
@@ -71,7 +72,7 @@ def build_pf(
     for slot, stamp in enumerate(list(run_times)[:slots]):
         struct.pack_into("<Q", info, prefetch.LAST_RUN_OFFSET[version] + slot * 8,
                          to_filetime(stamp))
-    count_offset = (0xC8 if short_variant else 0xD0) if version == 30 \
+    count_offset = (0xC8 if short_variant else 0xD0) if version in (30, 31) \
         else prefetch.RUN_COUNT_OFFSET[version]
     struct.pack_into("<I", info, count_offset, run_count)
 
