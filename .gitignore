@@ -10,3 +10,5 @@ evidence/
 timeline.csv
 prefetch.csv
 *_report.json
+*.hiv
+NTUSER.DAT

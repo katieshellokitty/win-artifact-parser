@@ -2,19 +2,23 @@
 
     python -m winartifacts lnk <file-or-folder>
     python -m winartifacts prefetch <file-or-folder>
+    python -m winartifacts registry <NTUSER.DAT-or-folder>
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-from . import lnk, prefetch, report
+from . import lnk, prefetch, registry, report
 
-# name -> (file pattern, parse function, flat summary, timeline records, error type)
+# name -> (file pattern, parse function, flat rows, timeline records, error type)
 PARSERS = {
-    "lnk": ("*.lnk", lnk.parse_lnk, lambda p: p, lnk.to_timeline_records, lnk.LnkParseError),
-    "prefetch": ("*.pf", prefetch.parse_prefetch, prefetch.summary,
+    "lnk": ("*.lnk", lnk.parse_lnk, lambda p: [p], lnk.to_timeline_records,
+            lnk.LnkParseError),
+    "prefetch": ("*.pf", prefetch.parse_prefetch, lambda p: [prefetch.summary(p)],
                  prefetch.to_timeline_records, prefetch.PrefetchParseError),
+    "registry": ("NTUSER*.DAT", registry.parse_registry, registry.summary_rows,
+                 registry.to_timeline_records, registry.RegistryParseError),
 }
 
 
@@ -45,7 +49,12 @@ def run(args):
         records.sort(key=lambda r: r["timestamp"])
         rows, full = records, records
     else:
-        rows, full = [summarize(p) for p in parsed_all], parsed_all
+        rows = [row for p in parsed_all for row in summarize(p)]
+        full = parsed_all
+
+    if not rows:
+        print("Files parsed, but they contained no entries.", file=sys.stderr)
+        return 0
 
     if args.format == "csv":
         fields = report.TIMELINE_FIELDS if args.timeline else list(rows[0].keys())
@@ -68,6 +77,7 @@ def main(argv=None):
     helps = {
         "lnk": "parse Windows shortcut (.lnk) files",
         "prefetch": "parse Prefetch (.pf) files",
+        "registry": "parse UserAssist and RecentDocs from an NTUSER.DAT hive",
     }
     for name, help_text in helps.items():
         cmd = sub.add_parser(name, help=help_text)
